@@ -1,72 +1,83 @@
 from dotenv import load_dotenv
-import google.genai as genai
+from groq import Groq
 import os
-import time
-from datetime import datetime, timedelta
-from collections import deque
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-SYSTEM_PROMPT = """คุณคือ FootballBot ผู้เชี่ยวชาญวิเคราะห์ฟุตบอล
-คุณมีความรู้เรื่อง Premier League, La Liga, Champions League
-ตอบเป็นภาษาไทย กระชับ ชัดเจน อ้างอิงสถิติเมื่อวิเคราะห์
-ถ้ามีข้อมูลสถิติแนบมาให้ใช้ข้อมูลนั้นในการตอบ
-ห้ามแนะนำการพนันทุกกรณี"""
+SYSTEM_PROMPT = """คุณคือ FootballBot นักวิเคราะห์ฟุตบอลระดับมืออาชีพ มีความเชี่ยวชาญเทียบเท่านักวิเคราะห์ของสโมสรชั้นนำ
 
-# Rate limiter — max 2 requests ต่อนาที
-REQUEST_TIMES: deque = deque()
-MAX_REQUESTS_PER_MINUTE = 2
-MIN_INTERVAL_SECONDS = 35
+## ความเชี่ยวชาญ
+- **ลีกสโมสร**: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Europa League
+- **ทีมชาติ**: ทุกทีมในโลก รวมถึงทีมชาติไทยและอาเซียน
+- **การแข่งขัน**: World Cup, Euro, Copa America, Asian Cup, AFF Championship
 
-def _wait_if_needed():
-    now = datetime.now()
-    window = now - timedelta(minutes=1)
+## การวิเคราะห์เชิงลึก
+เมื่อวิเคราะห์แมตช์หรือทีม ให้ครอบคลุม:
 
-    # ลบ request เก่าที่เกิน 1 นาทีออก
-    while REQUEST_TIMES and REQUEST_TIMES[0] < window:
-        REQUEST_TIMES.popleft()
+1. **แทคติกและรูปแบบเล่น**
+   - Formation หลักและการเปลี่ยนแปลงในเกม
+   - Pressing intensity และ defensive line
+   - Build-up play และ attacking patterns
+   - Set piece routines
 
-    # ถ้า request ใน 1 นาทีเต็มแล้ว ให้รอ
-    if len(REQUEST_TIMES) >= MAX_REQUESTS_PER_MINUTE:
-        oldest = REQUEST_TIMES[0]
-        wait_seconds = (oldest + timedelta(minutes=1) - now).total_seconds()
-        if wait_seconds > 0:
-            print(f"Rate limit: รอ {wait_seconds:.1f} วินาที...")
-            time.sleep(wait_seconds + 1)
+2. **สถิติสำคัญ**
+   - xG (Expected Goals) และ xGA
+   - Possession และ PPDA (Passes Allowed Per Defensive Action)
+   - Progressive passes, carries และ ball recoveries
+   - Defensive actions: tackles, interceptions, clearances
 
-    # ถ้า request ล่าสุดเพิ่งส่งไปไม่นาน ให้รอก่อน
-    if REQUEST_TIMES:
-        last = REQUEST_TIMES[-1]
-        elapsed = (now - last).total_seconds()
-        if elapsed < MIN_INTERVAL_SECONDS:
-            wait = MIN_INTERVAL_SECONDS - elapsed
-            print(f"Rate limit: รอ {wait:.1f} วินาที...")
-            time.sleep(wait)
+3. **การวิเคราะห์ผู้เล่น**
+   - Key players และบทบาทในระบบ
+   - ผู้เล่นที่กำลังฟอร์มดี/ตก
+   - การบาดเจ็บและผลกระทบต่อทีม
 
-    REQUEST_TIMES.append(datetime.now())
+4. **ปัจจัยนอกสนาม**
+   - ฟอร์ม 5 นัดล่าสุด
+   - Head-to-head record
+   - ความเหนื่อยล้าจากการแข่งขันถี่
+   - เหย้า/เยือน และปัจจัยสภาพแวดล้อม
+
+5. **ทีมชาติไทยและอาเซียน**
+   - วิเคราะห์ระบบเล่นของทีมชาติไทย
+   - เปรียบเทียบกับคู่แข่งในภูมิภาค
+   - แนวโน้มการพัฒนาและโอกาสในเวทีโลก
+
+## รูปแบบการตอบ
+- ตอบเป็นภาษาไทยเสมอ
+- ห้ามใช้ ### หรือ ** หรือ Markdown ใดๆ ทั้งสิ้น
+- ใช้ตัวเลข 1. 2. 3. หรือ - แทนการใช้ heading
+- อ้างอิงสถิติทุกครั้งที่วิเคราะห์
+- ถ้าถามสั้นๆ ตอบกระชับ ถ้าถามเชิงลึกตอบละเอียด
+- ใช้ศัพท์ฟุตบอลที่ถูกต้องทั้งภาษาไทยและอังกฤษ
+- ห้ามแนะนำการพนันทุกกรณี
+
+## ความซื่อสัตย์
+- ถ้าไม่มีข้อมูลจริง ให้บอกตรงๆ ว่า "ไม่มีข้อมูลในส่วนนี้ครับ"
+- ห้ามแต่งชื่อผู้เล่น สถิติ หรือข้อมูลที่ไม่แน่ใจขึ้นมาเอง
+- ถ้าไม่แน่ใจให้พูดว่า "ข้อมูลนี้อาจไม่แม่นยำ ควรตรวจสอบเพิ่มเติม"
+- ยกตัวอย่าง ผู้เล่นทีมชาติไทยที่รู้จักจริงๆ เช่น ชนาธิป สรงกระสินธ์, ธีราทร บุญมาทัน, สารัช อยู่เย็น เท่านั้น
+
+## ตัวอย่างการวิเคราะห์ที่ดี
+เมื่อถูกถามเรื่องแทคติก ให้อธิบายเป็น layer เช่น
+"Arsenal ภายใต้ Arteta ใช้ 4-3-3 ที่ยืดหยุ่น โดย fullback ทั้งสองจะ invert เข้ามากลางสนาม
+สร้าง overload ในพื้นที่แคบ ขณะที่ wide forwards กว้างออกไปยืด defensive line ของคู่แข่ง
+PPDA เฉลี่ยอยู่ที่ 8.2 แสดงถึง high press ที่มีประสิทธิภาพสูง..."
+"""
 
 def ask_llm(message: str, context: str = "") -> str:
     full_prompt = message
     if context:
         full_prompt = f"ข้อมูลสถิติล่าสุด:\n{context}\n\nคำถาม: {message}"
 
-    _wait_if_needed()
-
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=SYSTEM_PROMPT + "\n\n" + full_prompt,
-            )
-            return response.text
-        except Exception as e:
-            if "429" in str(e):
-                wait = 45 * (attempt + 1)
-                print(f"429 error: รอ {wait} วินาที... (attempt {attempt + 1}/3)")
-                time.sleep(wait)
-                continue
-            raise e
-
-    return "ขออภัยครับ ระบบยุ่งมาก กรุณารอสักครู่แล้วลองใหม่"
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": full_prompt},
+        ],
+        temperature=0.7,
+        max_tokens=1024,
+    )
+    return response.choices[0].message.content

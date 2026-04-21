@@ -2,30 +2,40 @@ from fastapi import APIRouter, HTTPException
 from app.models.chat import ChatRequest, ChatResponse
 from app.core.llm import ask_llm
 from app.services.football_api import get_standings, get_top_scorers, get_fixtures_today
+from app.services.vector_db import search
 import json
 
 router = APIRouter()
 
 async def get_context(message: str) -> str:
+    context_parts = []
+
+    # ดึงจาก Vector DB
+    rag_results = search(message, n_results=3)
+    if rag_results:
+        context_parts.append("ข้อมูลความรู้ที่เกี่ยวข้อง:\n" + "\n".join(f"- {r}" for r in rag_results))
+
+    # ดึงจาก Football API
     msg = message.lower()
     try:
         if any(w in msg for w in ["ตาราง", "standings", "คะแนน", "อันดับ"]):
             league = "LaLiga" if any(w in msg for w in ["laliga", "la liga", "สเปน"]) else "EPL"
             data = await get_standings(league)
-            return f"ตารางคะแนน {league}:\n{json.dumps(data, ensure_ascii=False)}"
+            context_parts.append(f"ตารางคะแนน {league}:\n{json.dumps(data, ensure_ascii=False)}")
 
-        if any(w in msg for w in ["ดาวซัลโว", "top scorer", "goldenboot", "ทำประตู"]):
+        if any(w in msg for w in ["ดาวซัลโว", "top scorer", "ทำประตู"]):
             league = "LaLiga" if any(w in msg for w in ["laliga", "la liga", "สเปน"]) else "EPL"
             data = await get_top_scorers(league)
-            return f"Top Scorers {league}:\n{json.dumps(data, ensure_ascii=False)}"
+            context_parts.append(f"Top Scorers {league}:\n{json.dumps(data, ensure_ascii=False)}")
 
         if any(w in msg for w in ["วันนี้", "today", "แมตช์", "คืนนี้"]):
             data = await get_fixtures_today()
-            return f"แมตช์วันนี้:\n{json.dumps(data, ensure_ascii=False)}"
+            context_parts.append(f"แมตช์วันนี้:\n{json.dumps(data, ensure_ascii=False)}")
 
     except Exception:
-        return ""
-    return ""
+        pass
+
+    return "\n\n".join(context_parts)
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
@@ -34,5 +44,5 @@ async def chat(req: ChatRequest):
         reply = ask_llm(req.message, context)
         return ChatResponse(reply=reply, session_id=req.session_id)
     except Exception as e:
-        print(f"ERROR: {e}")  # เพิ่มบรรทัดนี้
+        print(f"ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
