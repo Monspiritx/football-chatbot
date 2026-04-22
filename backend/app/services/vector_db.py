@@ -28,4 +28,20 @@ def search(query: str, n_results: int = 3) -> list[str]:
         query_embeddings=embedding,
         n_results=n_results,
     )
-    return results["documents"][0] if results["documents"] else []
+    if not results["documents"]:
+        return []
+
+    docs = results["documents"][0]
+    metadatas = results["metadatas"][0]
+
+    # แนบ source ให้ LLM รู้ว่าข้อมูลมาจากไหน
+    enriched = []
+    for doc, meta in zip(docs, metadatas):
+        source = meta.get("source", "")
+        published = meta.get("published", "")
+        if source:
+            enriched.append(f"[{source}] {doc}")
+        else:
+            enriched.append(doc)
+
+    return enriched
