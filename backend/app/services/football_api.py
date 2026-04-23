@@ -67,13 +67,17 @@ async def get_fixtures_today():
             params={"dateFrom": today, "dateTo": today},
         )
         data = res.json()
+        matches = data.get("matches", [])
+        if not matches:
+            return []
         return [
             {
-                "home": m["homeTeam"]["name"],
-                "away": m["awayTeam"]["name"],
-                "league": m["competition"]["name"],
-                "status": m["status"],
-                "score": f"{m['score']['fullTime']['home']} - {m['score']['fullTime']['away']}",
+                "home": m["homeTeam"].get("name", "Unknown"),
+                "away": m["awayTeam"].get("name", "Unknown"),
+                "league": m["competition"].get("name", "Unknown"),
+                "status": m.get("status", ""),
+                "score": f"{m['score']['fullTime'].get('home', '-')} - {m['score']['fullTime'].get('away', '-')}",
             }
-            for m in data.get("matches", [])[:10]
+            for m in matches[:10]
+            if m.get("homeTeam") and m.get("awayTeam")
         ]

@@ -10,13 +10,19 @@ router = APIRouter()
 async def get_context(message: str) -> str:
     context_parts = []
 
-    # ดึงจาก Vector DB
-    rag_results = search(message, n_results=3)
+    # ดึงจาก Vector DB — ใช้ keyword extraction ให้ดีขึ้น
+    search_query = message
+    msg = message.lower()
+
+    # ถ้าถามเรื่องข่าววันนี้ให้ search คำที่กว้างขึ้น
+    if any(w in msg for w in ["วันนี้", "ล่าสุด", "ข่าว", "today", "latest", "news"]):
+        search_query = "football news latest transfer injury"
+
+    rag_results = search(search_query, n_results=3)
     if rag_results:
         context_parts.append("ข้อมูลความรู้ที่เกี่ยวข้อง:\n" + "\n".join(f"- {r}" for r in rag_results))
 
     # ดึงจาก Football API
-    msg = message.lower()
     try:
         if any(w in msg for w in ["ตาราง", "standings", "คะแนน", "อันดับ"]):
             league = "LaLiga" if any(w in msg for w in ["laliga", "la liga", "สเปน"]) else "EPL"
@@ -28,7 +34,7 @@ async def get_context(message: str) -> str:
             data = await get_top_scorers(league)
             context_parts.append(f"Top Scorers {league}:\n{json.dumps(data, ensure_ascii=False)}")
 
-        if any(w in msg for w in ["วันนี้", "today", "แมตช์", "คืนนี้"]):
+        if any(w in msg for w in ["วันนี้", "today", "แมตช์", "คืนนี้", "โปรแกรม"]):
             data = await get_fixtures_today()
             context_parts.append(f"แมตช์วันนี้:\n{json.dumps(data, ensure_ascii=False)}")
 
