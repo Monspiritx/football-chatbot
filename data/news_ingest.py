@@ -21,6 +21,16 @@ RSS_FEEDS = [
     {"url": "https://feeds.bbci.co.uk/sport/football/rss.xml", "source": "BBC Sport"},
     {"url": "https://www.theguardian.com/football/rss", "source": "The Guardian"},
     {"url": "https://www.goal.com/feeds/en/news", "source": "Goal.com"},
+    
+    # บอลเอเชีย
+    {"url": "https://www.goal.com/en-sg/feeds/news?fmt=rss", "source": "Goal Asia"},
+    {"url": "https://www.afcsiteassets.com/rss/news.xml", "source": "AFC"},
+    {"url": "https://www.the-afc.com/rss/news", "source": "AFC News"},
+    
+    # บอลไทย
+    {"url": "https://www.siamsport.co.th/rss.xml", "source": "Siam Sport"},
+    {"url": "https://www.thsport.com/feed", "source": "TH Sport"},
+    {"url": "https://www.smmsport.com/feed/", "source": "SMM Sport"},
 ]
 
 def make_id(text: str) -> str:
@@ -36,8 +46,29 @@ def already_exists(doc_id: str) -> bool:
 EXCLUDE_KEYWORDS = [
     "women", "woman", "female", "wsl", "nwsl",
     "women's", "girls", "ladies", "ona batlle",
-    "beth mead", "leah williamson", "alexia putellas"
+    "beth mead", "leah williamson", "alexia putellas",
+    "sam kerr", "vivianne miedema", "ada hegerberg",
 ]
+
+THAI_FOOTBALL_KEYWORDS = [
+    "ไทย", "ทีมชาติ", "thai", "thailand", "tpl",
+    "ไทยลีก", "thai league", "บุรีรัมย์", "ชลบุรี",
+    "สมาคมฟุตบอล", "fat", "ชนาธิป", "ธีราทร", "สารัช",
+    "aff", "asean", "อาเซียน", "sea games",
+]
+
+ASIAN_FOOTBALL_KEYWORDS = [
+    "afc", "asian cup", "เอเชีย", "j-league", "k-league",
+    "จีน", "ญี่ปุ่น", "เกาหลี", "china", "japan", "korea",
+    "saudi", "qatar", "uae", "iran", "australia", "a-league",
+]
+
+def is_relevant_football(text: str) -> bool:
+    text_lower = text.lower()
+    # กรองบอลหญิงออก
+    if any(keyword in text_lower for keyword in EXCLUDE_KEYWORDS):
+        return False
+    return True
 
 def is_mens_football(text: str) -> bool:
     text_lower = text.lower()
